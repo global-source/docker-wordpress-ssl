@@ -4,53 +4,83 @@ services:
 
   swag:
     image: linuxserver/swag
-    container_name: swag
     depends_on:
       - wordpress
     volumes:
       - ./config:/config
       - ./default:/config/nginx/site-confs/default
     environment:
-      - EMAIL=email@example.com
-      - URL=www.example.com
+      - EMAIL=your-email@domain.com
+      - URL=www.domain.com
       - VALIDATION=http
-      - TZ=Europe/London
+      - TZ=India/Kolkata
       - PUID=500
       - PGID=500
+    deploy:
+      mode: replicated
+      replicas: 1
+      labels: [APP=BLOG,SSL]
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints: [node.role == manager]
+    networks:
+      - wp-blog 
     ports:
       - "443:443"
       - "80:80"
 
   wordpress:
     image: wordpress:latest
-    container_name: wordpress
     hostname: wordpress
+    restart: always
     depends_on:
       - db
-    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+      labels: [APP=BLOG,CMS]
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints: [node.role == manager]
+    networks:
+      - wp-blog 
     ports:
       - "8080:80"
     volumes:
-      - /var/www/html/example/wp-content:/var/www/html/wp-content
-      - /var/www/html/example/custom.ini:/usr/local/etc/php/conf.d/custom.ini
+      - /var/www/html/site/wp-content:/var/www/html/wp-content
+      - /var/www/html/site/custom.ini:/usr/local/etc/php/conf.d/custom.ini
     environment:
       WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_USER: wp_db_user
-      WORDPRESS_DB_PASSWORD: wp_db_pass
-      WORDPRESS_DB_NAME: wp_db_name
+      WORDPRESS_DB_USER: DB_USERNAME
+      WORDPRESS_DB_PASSWORD: DB_PASSWORD
+      WORDPRESS_DB_NAME: DB_NAME
       WORDPRESS_CONFIG_EXTRA: |
         define( 'WP_MEMORY_LIMIT', '96M' );
 
   db:
     image: mysql:5.7
-    container_name: db
     volumes:
       - /var/lib/mysql:/var/lib/mysql
-    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+      labels: [APP=BLOG,DB]
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints: [node.role == manager]
+    networks:
+      - wp-blog 
     ports:
       - "3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: mysql_root_pass
-      MYSQL_DATABASE: wp_db_name
-      MYSQL_USER: wp_db_user
-      MYSQL_PASSWORD: wp_db_pass
+      MYSQL_ROOT_PASSWORD: MYSQL_ROOT_PASSWORD
+      MYSQL_USER: DB_USERNAME
+      MYSQL_PASSWORD: DB_PASSWORD
+      MYSQL_DATABASE: DB_NAME
+
+
+networks:
+  wp-blog:
